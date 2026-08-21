@@ -198,9 +198,15 @@ app.get('/api/quizzes/:id/pdf',admin,(req,res)=>{const q=store.quizzes[String(re
 
 app.get('/api/quiz/results',admin,(_req,res)=>res.json({results:store.results}));
 
-app.listen(PORT,()=>{
-  console.log(`ðŸš€ Catalyst Server running on port ${PORT}`);
-});
+// هذا الشرط ليعمل السيرفر محلياً فقط ولا يسبب خطأ على Vercel
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Catalyst Server running on port ${PORT}`);
+  });
+}
+
+// هذا التصدير ضروري ليعمل الكود على Vercel
+export default app;
 
 
 
