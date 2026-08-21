@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  catalyst-waha:
+    image: devlikeapro/waha:2026.8.1
+    ports:
+      - "3001:3000"
+    environment:
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WHATSAPP_HOOK_URL=http://host.docker.internal:4000/api/whatsapp/webhook
+      - WHATSAPP_HOOK_EVENTS=message
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - waha-data:/data
+    restart: unless-stopped
+
+  backend:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - WAHA_URL=http://catalyst-waha:3000
+      - WAHA_API_KEY=${WAHA_API_KEY}
+    depends_on:
+      - catalyst-waha
+    restart: unless-stopped
+
+volumes:
+  waha-data:

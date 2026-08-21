@@ -1,0 +1,27 @@
+﻿{
+  "name": "بوابة الطالب - Catalyst Quiz",
+  "short_name": "Catalyst",
+  "description": "بوابة الطالب لأداء الاختبارات الإلكترونية",
+  "start_url": "/student.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "background_color": "#eef4ff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

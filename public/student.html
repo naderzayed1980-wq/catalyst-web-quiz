@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2563eb">
+<title>بوابة الطالب — WhatsApp Quiz</title>
+<style>
+body{font-family:system-ui;background:#eef4ff;padding:25px;color:#172033}.card{max-width:620px;margin:auto;background:#fff;padding:25px;border-radius:20px;box-shadow:0 8px 30px #0001}input,select{width:100%;padding:12px;margin:7px 0;border:1px solid #ccd6e5;border-radius:10px;box-sizing:border-box}button{padding:12px 18px;background:#2563eb;color:#fff;border:0;border-radius:10px;font-weight:bold;cursor:pointer;margin:4px}.secondary{background:#64748b}.success{background:#059669}.danger{background:#b91c1c}.msg{margin-top:15px;padding:12px;border-radius:10px;background:#eff6ff}.hidden{display:none}.student-box{background:#f8fafc;padding:15px;border-radius:12px;margin-top:15px}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>👨‍🎓 بوابة الطالب</h1>
+<p id="intro">إذا تمت الموافقة على تسجيلك، استخدم رقم الهاتف المسجل للدخول.</p>
+
+<div id="loginBox">
+<h2>🔐 دخول الطالب</h2>
+<p>أدخل رقم الهاتف الذي تم تسجيله والموافقة عليه من المدير.</p>
+<input id="loginPhone" placeholder="رقم واتساب 2010..." inputmode="numeric" autocomplete="tel">
+<button class="success" onclick="login()">دخول</button>
+<button class="secondary" onclick="showRegister()">📝 طلب تسجيل جديد</button>
+</div>
+
+<div id="registerBox" class="hidden">
+<h2>📝 طلب تسجيل جديد</h2>
+<input id="name" placeholder="الاسم بالكامل">
+<input id="phone" placeholder="رقم واتساب 2010..." inputmode="numeric">
+<input id="grade" placeholder="الصف الدراسي">
+<input id="groupId" placeholder="كود المجموعة (إن وجد)">
+<input id="email" placeholder="البريد الإلكتروني (اختياري)">
+<input id="school" placeholder="المدرسة (اختياري)">
+<button onclick="register()">إرسال طلب التسجيل</button>
+<button class="secondary" onclick="showLogin()">↩ العودة إلى الدخول</button>
+</div>
+
+<div id="studentBox" class="student-box hidden"></div><div id="testBox" class="student-box hidden"></div>
+<div id="msg" class="msg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function message(t){$('msg').textContent=t;}
+function showLogin(prefill=''){
+ $('registerBox').classList.add('hidden');$('loginBox').classList.remove('hidden');$('studentBox').classList.add('hidden');
+ $('intro').textContent='إذا تمت الموافقة على تسجيلك، استخدم رقم الهاتف المسجل للدخول.';
+ if(prefill)$('loginPhone').value=prefill;message('');
+}
+function showRegister(){
+ $('loginBox').classList.add('hidden');$('registerBox').classList.remove('hidden');$('studentBox').classList.add('hidden');
+ $('intro').textContent='املأ بياناتك مرة واحدة. لن تتمكن من دخول الاختبار إلا بعد موافقة المدير.';message('');
+}
+async function register(){
+ const data={name:$('name').value.trim(),phone:$('phone').value.trim(),grade:$('grade').value.trim(),groupId:$('groupId').value.trim(),email:$('email').value.trim(),school:$('school').value.trim()};
+ if(!data.name||!data.phone||!data.grade){message('❌ الاسم ورقم الهاتف والصف مطلوبة');return;}
+ try{const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await r.json();
+  if(!r.ok){message('❌ '+(d.error||'حدث خطأ'));return;}localStorage.setItem('studentPhone',data.phone);showLogin(data.phone);message('✅ تم إرسال طلب التسجيل للمدير. بعد الموافقة استخدم رقم الهاتف للدخول.');
+ }catch(e){message('❌ تعذر الاتصال بالسيرفر');}
+}
+async function login(){
+ const p=$('loginPhone').value.trim();if(!p){message('❌ أدخل رقم الهاتف');return;}
+ try{const r=await fetch('/api/student/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:p})});const d=await r.json();
+  if(!r.ok){message('❌ '+(d.error||'حدث خطأ'));return;}if(d.status==='PENDING'){message('⏳ طلبك ما زال قيد مراجعة المدير.');return;}if(d.status==='SUSPENDED'){message('\u26d4 \u062d\u0633\u0627\u0628\u0643 \u0645\u0648\u0642\u0648\u0641 \u0645\u0624\u0642\u062a\u0627\u064b. \u064a\u0631\u062c\u0649 \u0645\u0631\u0627\u062c\u0639\u0629 \u0627\u0644\u0645\u062f\u064a\u0631.');return;}if(d.status==='REJECTED'){message('❌ تم رفض طلب التسجيل. راجع المدير.');return;}if(d.status!=='APPROVED'){message('❌ هذا الرقم غير مسجل. إذا لم تكن سجلت من قبل اضغط «طلب تسجيل جديد».');return;}
+  localStorage.setItem('studentPhone',p);$('studentBox').classList.remove('hidden');
+  $('studentBox').innerHTML='<h3>✅ تم الدخول بنجاح</h3><p>👨‍🎓 <b>'+escapeHtml(d.student.name)+'</b></p><p>🎓 الصف: <b>'+escapeHtml(d.student.grade)+'</b></p><p>📱 '+escapeHtml(d.student.phone.replace('@c.us',''))+'</p>'+(d.quizzes&&d.quizzes.length?'<p>📚 الاختبارات المتاحة:</p><div>'+d.quizzes.map((q,i)=>'<div style="display:flex;align-items:center;gap:10px;margin:10px 0;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc"><span style="flex:1"><b>'+((i+1)+')')+'</b> '+escapeHtml(q.title)+'</span><button class="success" onclick="startBrowserTest(&quot;'+encodeURIComponent(q.id)+'&quot;)">▶ دخول الاختبار</button></div>').join('')+'</div><p>اختر الاختبار الذي تريد حله. يبدأ الاختبار داخل لوحة الطالب مباشرة.</p>':'<p>⚠️ لا يوجد اختبار منشور لهذا الصف حاليًا.</p>');
+  message('🎉 تم اعتماد حسابك والدخول بنجاح. '+(d.quizzes&&d.quizzes.length?('📚 '+d.quizzes.length+' اختبار منشور متاح لك.'): '⚠️ لا يوجد اختبار منشور متاح لك حاليًا.'));
+ }catch(e){message('❌ تعذر الاتصال بالسيرفر');}
+}
+
+async function startBrowserTest(id){const p=localStorage.getItem('studentPhone')||$('loginPhone').value.trim();try{const r=await fetch('/api/student/test/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:p,quizId:decodeURIComponent(id)})});const d=await r.json();if(!r.ok){message('❌ '+(d.error||'تعذر بدء الاختبار'));return;}renderQuestion(d.quiz,d.index);message('🟢 بدأ الاختبار');}catch(e){message('❌ تعذر الاتصال بالسيرفر');}}
+function renderQuestion(quiz,index){const q=quiz.questions[index];$('testBox').classList.remove('hidden');let x='<h2>📝 '+escapeHtml(quiz.title)+'</h2><p><b>السؤال '+(index+1)+' من '+quiz.questions.length+'</b> — '+q.weight+' درجات</p>';if(q.imageUrl)x+='<img src="'+q.imageUrl+'" style="max-width:100%;max-height:320px;border-radius:12px">';x+='<div style="font-size:20px;font-weight:700;margin:15px 0">'+escapeHtml(q.question)+'</div>';if(q.type==='mcq'&&q.options.length)x+=q.options.map((o,i)=>'<label style="display:block;padding:12px;margin:8px 0;border:2px solid #dbe4f0;border-radius:10px"><input type="radio" name="browserAnswer" value="'+i+'"> '+['أ','ب','ج','د','هـ'][i]+') '+escapeHtml(o)+'</label>').join('');else x+='<textarea id="browserAnswer" style="width:100%;min-height:120px;padding:12px" placeholder="اكتب إجابتك"></textarea>';x+='<button class="success" onclick="submitBrowserAnswer()">التالي ➜</button>';$('testBox').innerHTML=x;$('testBox').scrollIntoView({behavior:'smooth'});}
+async function submitBrowserAnswer(){const p=localStorage.getItem('studentPhone')||$('loginPhone').value.trim();const rdo=document.querySelector('input[name=browserAnswer]:checked');const ta=$('browserAnswer');const answer=rdo?rdo.value:(ta?ta.value.trim():'');if(answer===''){message('❌ اختر أو اكتب إجابة أولاً');return;}try{const r=await fetch('/api/student/test/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:p,answer})});const d=await r.json();if(!r.ok){message('❌ '+(d.error||'تعذر إرسال الإجابة'));return;}message(d.feedback||'تم تسجيل الإجابة');if(d.completed){$('testBox').innerHTML='<h2>🏆 انتهى الاختبار</h2><h2>'+d.result.totalScore+' / '+d.result.maxScore+' — '+d.result.percentage+'%</h2><p>'+escapeHtml(d.result.summary)+'</p><button onclick="login()">↩ العودة</button>';message('✅ تم حفظ النتيجة في لوحة المدير');return;}renderQuestion({title:'السؤال التالي',questions:[d.question]},0);}catch(e){message('❌ تعذر الاتصال بالسيرفر');}}
+
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+window.addEventListener('DOMContentLoaded',()=>{const saved=localStorage.getItem('studentPhone');if(saved)$('loginPhone').value=saved;});
+</script>
+</body>
+</html>

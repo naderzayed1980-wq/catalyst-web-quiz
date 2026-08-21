@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Access-Control-Allow-Origin: *
+Content-Type: image/png
+Content-Length: 5323
+Date: Wed, 19 Aug 2026 10:13:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

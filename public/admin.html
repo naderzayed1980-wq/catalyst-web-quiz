@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>لوحة إدارة الاختبارات</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 18px; }
+    .wrap { max-width: 1300px; margin: auto; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    input, select, textarea { width: 100%; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 9px; padding: 10px; margin: 4px 0; }
+    textarea { min-height: 80px; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 9px; padding: 10px 14px; font-weight: 700; cursor: pointer; margin: 4px 2px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ok { background: #059669; }
+    .danger { background: #b91c1c; }
+    .warn { background: #b45309; }
+    .item, .q { border: 1px solid #475569; border-radius: 12px; padding: 12px; margin: 8px 0; }
+    .muted { color: #94a3b8; }
+    .pill { display: inline-block; background: #334155; padding: 4px 8px; border-radius: 15px; margin: 2px; font-size: 12px; }
+    .thumb { max-width: 180px; max-height: 110px; object-fit: contain; background: #fff; border-radius: 8px; margin: 4px; }
+    .tabs button { background: #334155; }
+    .tabs button.active { background: #2563eb; }
+    @media(max-width: 800px) {
+      .grid, .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    
+    <!-- Header Card -->
+    <div class="card">
+      <h1>📊 لوحة المدير — WhatsApp Quiz v4.6</h1>
+      <input id="key" type="password" placeholder="ADMIN_API_KEY">
+      <button onclick="saveKey()">🔐 حفظ المفتاح</button>
+      <button onclick="refresh()">🔄 تحديث</button>
+      <a href="/student.html" target="_blank" style="color:#93c5fd;margin-right:10px">نافذة تسجيل الطالب</a>
+      <span id="msg" style="margin-right: 10px; font-weight: bold;"></span>
+      <span class="pill" id="aiStatus">🤖 Gemini: جارٍ التحقق...</span>
+    </div>
+
+    <!-- Student Registration Requests -->
+    <div class="card">
+      <h2>🧑‍🎓 طلبات تسجيل الطلاب <span class="pill" id="pendingCount">0 طلبات معلقة</span></h2>
+      <div id="pending">...</div>
+    </div>
+
+    <!-- Approved Students -->
+    <div class="card">
+      <h2>👨‍🎓 الطلاب المعتمدون</h2>
+      <div id="students">...</div>
+    </div>
+
+    <!-- Groups -->
+    <div class="card">
+      <h2>👥 المجموعات</h2>
+      <div class="grid">
+        <input id="gid" placeholder="معرّف المجموعة">
+        <input id="gname" placeholder="اسم المجموعة">
+        <input id="ggrade" placeholder="الصف">
+        <input id="gchat" placeholder="Chat ID مثل 120...@g.us">
+      </div>
+      <button onclick="addGroup()">➕ إضافة مجموعة</button>
+      <div id="groups"></div>
+    </div>
+
+    <!-- AI Import & Generation -->
+    <div class="card">
+      <h2>🤖 استيراد المصدر وتوليد الاختبار بالذكاء الاصطناعي</h2>
+      <p class="muted">ارفع Word أو PDF أو PowerPoint أو Excel أو TXT/CSV أو صورة. يتم استخراج النص والمرفقات ثم يمكن لـ Gemini بناء أسئلة قابلة للمراجعة قبل النشر.</p>
+      <div class="grid">
+        <input id="file" type="file" accept=".docx,.pdf,.pptx,.xlsx,.xls,.txt,.csv,.png,.jpg,.jpeg,.webp,.gif,.svg">
+        <select id="importType">
+          <option value="mcq">اختيار من متعدد</option>
+          <option value="comprehension">فهم واستيعاب</option>
+          <option value="analysis">تحليل</option>
+          <option value="critical">تفكير نقدي</option>
+          <option value="essay">مقالي</option>
+          <option value="mixed">متنوع</option>
+        </select>
+        <input id="aiCount" type="number" min="1" max="50" value="10" placeholder="عدد الأسئلة">
+        <select id="aiDifficulty">
+          <option>سهل</option>
+          <option selected>متوسط</option>
+          <option>صعب</option>
+          <option>متدرج</option>
+        </select>
+        <input id="aiGrade" placeholder="الصف الدراسي">
+      </div>
+      <button onclick="uploadSource()">📥 رفع المصدر</button>
+      <button onclick="chooseNewSource()">📂 اختيار ملف جديد</button>
+      <button class="ok" id="aiGenerateBtn" onclick="generateAI()" disabled>🤖 توليد الأسئلة بـ Gemini</button>
+      <div id="sourceMsg"></div>
+      <div id="sourcePreview"></div>
+    </div>
+
+    <!-- Create Quiz -->
+    <div class="card">
+      <h2>🔬 إنشاء الاختبار</h2>
+      <div class="grid">
+        <input id="qid" value="quiz-1">
+        <input id="qtitle" placeholder="عنوان الاختبار">
+        <input id="qgrade" placeholder="الصف">
+        <input id="qgroups" value="*" placeholder="المجموعات IDs مفصولة بفاصلة أو *">
+        <input id="qorder" type="number" min="1" value="1" placeholder="ترتيب الاختبار بالتتابع">
+      </div>
+      <div id="questions"></div>
+      <button onclick="addQ()">➕ سؤال</button>
+      <button id="saveQuizBtn" class="ok" type="button" onclick="saveQuiz()">💾 حفظ وتفعيل</button>
+      <button class="warn" onclick="newQuizFromSource(false)">➕ اختبار جديد</button>
+      <button onclick="newQuizFromSource(true)">📄 اختبار جديد من نفس المصدر</button>
+      <div id="quizzes"></div>
+    </div>
+
+    <!-- Quiz Archive -->
+    <div class="card">
+      <h2>🗄️ أرشيف الاختبارات</h2>
+      <div id="archiveInfo" class="muted">الاختبارات المؤرشفة محفوظة ويمكن استعادتها لاحقًا.</div>
+      <div id="archive"></div>
+    </div>
+
+    <!-- Multi-Quiz Info -->
+    <div class="card">
+      <h2>🧭 نظام الاختبارات المتعددة</h2>
+      <p class="muted">أنشئ أكثر من اختبار للصف نفسه. <b>الترتيب</b> يحدد تسلسل الاختبارات عند اختيار «متتابع». الطالب يرى الاختبارات المنشورة المخصصة لصفه/مجموعته فقط.</p>
+      <div class="item">
+        <b>طريقة الطالب على WhatsApp:</b><br>
+        1️⃣ يرسل <b>اختبار</b> لعرض القائمة.<br>
+        2️⃣ يرسل رقمًا مثل <b>2</b> لحل اختبار محدد فقط.<br>
+        3️⃣ يرسل <b>متتابع</b> لحل كل الاختبارات النشطة بالترتيب.<br>
+        4️⃣ بعد كل اختبار تصله درجته، ثم ينتقل تلقائيًا للاختبار التالي في وضع التتابع.
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+      <h2>📈 نتائج الطلاب</h2>
+      <div id="results">...</div>
+    </div>
+
+  </div>
+
+  <script>
+    const KEY = 'catalyst_admin_api_key';
+    const keyInput = document.getElementById('key');
+    if (keyInput) keyInput.value = localStorage.getItem(KEY) || '';
+
+    let qs = [];
+    let lastSource = null;
+
+    function saveKey() {
+      const val = document.getElementById('key').value.trim();
+      localStorage.setItem(KEY, val);
+      say('🔐 تم حفظ المفتاح');
+    }
+
+    function say(text) {
+      const el = document.getElementById('msg');
+      if (el) el.textContent = text;
+    }
+
+    async function api(path, options = {}) {
+      const headers = new Headers(options.headers || {});
+      
+      const adminKey = (keyInput && keyInput.value.trim()) || localStorage.getItem(KEY) || '';
+      if (adminKey) {
+        headers.set('x-api-key', adminKey);
+      }
+
+      if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+
+      const response = await fetch('/api' + path, {
+        ...options,
+        headers,
+        cache: 'no-store'
+      });
+
+      const raw = await response.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { message: raw };
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || `خطأ سيرفر: ${response.status}`);
+      }
+      return data;
+    }
+
+    async function refresh() {
+      try {
+        const [s, g, q, r] = await Promise.all([
+          api('/students'),
+          api('/groups'),
+          api('/quizzes'),
+          api('/quiz/results')
+        ]);
+        renderStudents(s.students || []);
+        renderGroups(g.groups || []);
+        renderQuizzes(q.quizzes || []);
+
+        const pendingList = (s.students || []).filter(x => x.status === 'PENDING');
+        document.getElementById('pendingCount').textContent = `${pendingList.length} طلبات معلقة`;
+        
+        const resList = r.results || [];
+        document.getElementById('results').innerHTML = resList.map(x => 
+          `<div class="item"><b>${escapeHtml(x.studentName || 'طالب')}</b> — ${escapeHtml((x.phone || '').replace('@c.us', ''))} — ${escapeHtml(x.grade || '')}<br>🎯 <b>${x.totalScore}/${x.maxScore} (${x.percentage}%)</b> — ${new Date(x.date).toLocaleString('ar-EG')}</div>`
+        ).join('') || '<span class="muted">لا نتائج.</span>';
+
+        say('آخر تحديث: ' + new Date().toLocaleTimeString('ar-EG'));
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    function renderStudents(a) {
+      const p = a.filter(x => x.status === 'PENDING');
+      document.getElementById('pending').innerHTML = p.map(x => 
+        `<div class="item"><b>${escapeHtml(x.name)}</b> — ${escapeHtml(x.phone)}<br>الصف: ${escapeHtml(x.grade)} ${x.school ? '— ' + escapeHtml(x.school) : ''}<br><input id="grp-${x.phone.replace(/\W/g, '')}" placeholder="مجموعات IDs مفصولة بفاصلة"><button class="ok" onclick="approve('${encodeURIComponent(x.phone)}','${x.phone.replace(/\W/g, '')}')">✅ موافقة</button><button class="danger" onclick="reject('${encodeURIComponent(x.phone)}')">❌ رفض</button></div>`
+      ).join('') || '<span class="muted">لا توجد طلبات معلقة.</span>';
+
+      document.getElementById('students').innerHTML = a.filter(x => x.status === 'APPROVED').map(x => 
+        `<div class="item"><b>${escapeHtml(x.name)}</b> — ${escapeHtml((x.phone || '').replace('@c.us', ''))}<br>الصف: ${escapeHtml(x.grade)} — ${x.active ? '🟢 نشط' : '🔴 موقوف'}<br>${(x.groupIds || []).map(g => `<span class="pill">${escapeHtml(g)}</span>`).join(' ')}<br><button class="warn" onclick="toggleStudent('${encodeURIComponent(x.phone)}',${!x.active})">${x.active ? '⛔ إيقاف الدخول' : '✅ تفعيل الدخول'}</button><button class="danger" onclick="deleteStudent('${encodeURIComponent(x.phone)}','${escapeHtml(x.name)}')">🗑️ حذف الحساب</button></div>`
+      ).join('') || '<span class="muted">لا يوجد طلاب معتمدون.</span>';
+    }
+
+    async function approve(p, raw) {
+      const el = document.getElementById('grp-' + raw);
+      const groups = (el?.value || '').split(',').map(x => x.trim()).filter(Boolean);
+      try {
+        await api('/students/' + p + '/approve', { method: 'POST', body: JSON.stringify({ groupIds: groups }) });
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function reject(p) {
+      if (!confirm('رفض الطلب؟')) return;
+      try {
+        await api('/students/' + p + '/reject', { method: 'POST' });
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function toggleStudent(p, active) {
+      try {
+        await api('/students/' + p, { method: 'PATCH', body: JSON.stringify({ active }) });
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function deleteStudent(p, name) {
+      if (!confirm('سيتم حذف حساب الطالب «' + name + '».\nلن تُحذف نتائجه السابقة. هل تريد المتابعة؟')) return;
+      try {
+        await api('/students/' + p, { method: 'DELETE' });
+        say('✅ تم حذف حساب الطالب');
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    function escapeHtml(v) {
+      return String(v || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    async function addGroup() {
+      const gid = document.getElementById('gid');
+      const gname = document.getElementById('gname');
+      const ggrade = document.getElementById('ggrade');
+      const gchat = document.getElementById('gchat');
+      try {
+        await api('/groups', {
+          method: 'POST',
+          body: JSON.stringify({ id: gid.value, name: gname.value, grade: ggrade.value, chatId: gchat.value, active: true })
+        });
+        gid.value = gname.value = ggrade.value = gchat.value = '';
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    function renderGroups(a) {
+      document.getElementById('groups').innerHTML = a.map(x => 
+        `<div class="item"><b>${escapeHtml(x.name)}</b> — ${escapeHtml(x.grade)}<br><span class="pill">${escapeHtml(x.id)}</span><span class="pill">${escapeHtml(x.chatId)}</span></div>`
+      ).join('') || '<span class="muted">لا مجموعات.</span>';
+    }
+
+    async function uploadSource() {
+      const fileEl = document.getElementById('file');
+      if (!fileEl.files[0]) return say('اختر ملفاً');
+      const fd = new FormData();
+      fd.append('file', fileEl.files[0]);
+
+      const sourceMsg = document.getElementById('sourceMsg');
+      const sourcePreview = document.getElementById('sourcePreview');
+      const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+
+      try {
+        say('⏳ جاري رفع الملف وتفكيكه...');
+        const adminKey = (keyInput && keyInput.value.trim()) || localStorage.getItem(KEY) || '';
+        
+        const r = await fetch('/api/sources/upload', {
+          method: 'POST',
+          headers: { 'x-api-key': adminKey },
+          body: fd
+        });
+        const d = await r.json();
+
+        if (!r.ok) throw new Error(d.error || 'فشل رفع الملف');
+
+        lastSource = d.source;
+        qs = [];
+        renderQ();
+        aiGenerateBtn.disabled = false;
+        sourceMsg.innerHTML = `✅ تم رفع المصدر: <b>${escapeHtml(d.source.originalName)}</b><br>📎 المرفقات: ${d.attachmentCount}<br>اضغط «توليد الأسئلة بـ Gemini» لإنشاء أسئلة ذكية قابلة للمراجعة.`;
+        sourcePreview.innerHTML = (d.source.attachments || []).map(u => `<img class="thumb" src="${u}">`).join('');
+        say('✅ اكتمل الرفع بنجاح');
+      } catch (e) {
+        sourceMsg.textContent = '❌ ' + e.message;
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function generateAI() {
+      if (!lastSource) return say('ارفع مصدراً أولاً');
+      const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+      const sourceMsg = document.getElementById('sourceMsg');
+
+      aiGenerateBtn.disabled = true;
+      aiGenerateBtn.textContent = '⏳ Gemini يعمل...';
+      sourceMsg.textContent = '🤖 جاري تحليل المصدر وتوليد الأسئلة...';
+
+      try {
+        const importType = document.getElementById('importType').value;
+        const aiCount = document.getElementById('aiCount').value;
+        const aiDifficulty = document.getElementById('aiDifficulty').value;
+        const aiGrade = document.getElementById('aiGrade').value;
+        const qgrade = document.getElementById('qgrade').value;
+
+        const d = await api('/sources/' + encodeURIComponent(lastSource.id) + '/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            questionType: importType,
+            count: Number(aiCount) || 10,
+            difficulty: aiDifficulty,
+            grade: aiGrade || qgrade
+          })
+        });
+
+        qs = d.questions || [];
+        renderQ();
+        sourceMsg.innerHTML = `✅ تم توليد <b>${qs.length}</b> سؤال بواسطة Gemini (${escapeHtml(d.model || 'Gemini')}).<br>راجعها وعدّل الإجابات والأوزان ثم احفظ الاختبار.`;
+        say('✅ تم توليد الأسئلة بنجاح');
+      } catch (e) {
+        sourceMsg.textContent = '❌ ' + e.message;
+        say('❌ ' + e.message);
+      } finally {
+        aiGenerateBtn.disabled = false;
+        aiGenerateBtn.textContent = '🤖 توليد الأسئلة بـ Gemini';
+      }
+    }
+
+    function addQ(q) {
+      qs.push(q || {
+        id: Date.now(),
+        type: 'mcq',
+        question: '',
+        options: ['', '', '', ''],
+        correctIndex: 0,
+        correctAnswer: '',
+        weight: 5,
+        imageUrl: '',
+        source: '',
+        explanation: '',
+        acceptableAnswers: []
+      });
+      renderQ();
+    }
+
+    function renderQ() {
+      const questionsEl = document.getElementById('questions');
+      questionsEl.innerHTML = qs.map((q, i) => `
+        <div class="q">
+          <b>السؤال ${i + 1}</b>
+          <textarea oninput="qs[${i}].question=this.value" placeholder="نص السؤال">${q.question || ''}</textarea>
+          <div class="grid">
+            <select onchange="qs[${i}].type=this.value;renderQ()">
+              ${['mcq', 'comprehension', 'analysis', 'critical', 'essay'].map(t => `<option ${q.type === t ? 'selected' : ''} value="${t}">${t}</option>`).join('')}
+            </select>
+            <input type="number" min="1" value="${q.weight || 5}" oninput="qs[${i}].weight=Number(this.value)" placeholder="الوزن">
+            <input value="${q.imageUrl || ''}" oninput="qs[${i}].imageUrl=this.value" placeholder="رابط المرفق/الصورة">
+          </div>
+          ${q.imageUrl ? `<img class="thumb" src="${q.imageUrl}">` : ''}
+          ${q.type === 'mcq' ? `
+            <div class="grid2">
+              ${(q.options || ['', '', '', '']).map((o, j) => `<input value="${o || ''}" oninput="qs[${i}].options[${j}]=this.value" placeholder="الخيار ${j + 1}">`).join('')}
+            </div>
+            <select onchange="qs[${i}].correctIndex=Number(this.value);qs[${i}].correctAnswer=qs[${i}].options[Number(this.value)]||''">
+              ${(q.options || ['', '', '', '']).map((_, j) => `<option value="${j}" ${q.correctIndex === j ? 'selected' : ''}>الإجابة الصحيحة هي الخيار ${j + 1}</option>`).join('')}
+            </select>
+          ` : ''}
+          <input value="${q.correctAnswer || ''}" oninput="qs[${i}].correctAnswer=this.value" placeholder="الإجابة النموذجية">
+          <input value="${(q.acceptableAnswers || []).join(' | ')}" oninput="qs[${i}].acceptableAnswers=this.value.split('|').map(x=>x.trim()).filter(Boolean)" placeholder="إجابات مقبولة أخرى (فصل بـ |)">
+          <textarea oninput="qs[${i}].explanation=this.value" placeholder="التغذية الراجعة والشرح">${q.explanation || ''}</textarea>
+          <button class="danger" onclick="qs.splice(${i},1);renderQ()">🗑️ حذف السؤال</button>
+        </div>
+      `).join('');
+    }
+
+    async function saveQuiz() {
+      const btn = document.getElementById('saveQuizBtn');
+      if (btn) btn.disabled = true;
+
+      try {
+        const qidEl = document.getElementById('qid');
+        const qtitleEl = document.getElementById('qtitle');
+        const qgradeEl = document.getElementById('qgrade');
+        const qgroupsEl = document.getElementById('qgroups');
+        const qorderEl = document.getElementById('qorder');
+
+        const titleVal = (qtitleEl?.value || '').trim();
+        const gradeVal = (qgradeEl?.value || '').trim();
+        const groupsVal = (qgroupsEl?.value || '*').trim();
+        const rawId = (qidEl?.value || '').trim();
+
+        if (!titleVal) {
+          alert('❌ يرجى كتابة عنوان الاختبار');
+          say('❌ اكتب عنوان الاختبار');
+          return;
+        }
+        if (!gradeVal) {
+          alert('❌ يرجى كتابة الصف الدراسي');
+          say('❌ اكتب الصف الدراسي');
+          return;
+        }
+        if (!qs || !qs.length) {
+          alert('❌ يرجى إضافة أو توليد أسئلة أولاً');
+          say('❌ أضف أو ولّد الأسئلة أولاً');
+          return;
+        }
+
+        const id = (!rawId || rawId === 'quiz-1' || (rawId.startsWith('quiz-') && rawId.length < 12)) 
+          ? ('quiz-' + Date.now()) 
+          : rawId;
+
+        const cleanedQuestions = qs.map((q, idx) => ({
+          id: Number(q.id) || (Date.now() + idx),
+          type: q.type || 'mcq',
+          question: String(q.question || '').trim(),
+          options: Array.isArray(q.options) ? q.options.map(o => String(o || '')) : [],
+          correctIndex: Number.isInteger(Number(q.correctIndex)) ? Number(q.correctIndex) : 0,
+          correctAnswer: String(q.correctAnswer || ''),
+          weight: Number(q.weight) > 0 ? Number(q.weight) : 5,
+          imageUrl: q.imageUrl || '',
+          explanation: String(q.explanation || ''),
+          acceptableAnswers: Array.isArray(q.acceptableAnswers) ? q.acceptableAnswers : []
+        }));
+
+        const payload = {
+          id: String(id),
+          title: titleVal,
+          grade: gradeVal,
+          groupIds: groupsVal.split(',').map(x => x.trim()).filter(Boolean),
+          questions: cleanedQuestions,
+          active: true,
+          order: Number(qorderEl?.value) || 1,
+          sourceFiles: lastSource ? [lastSource] : []
+        };
+
+        say('⏳ جاري الحفظ والتفعيل على السيرفر...');
+
+        const result = await api('/quizzes', { 
+          method: 'POST', 
+          body: JSON.stringify(payload) 
+        });
+
+        console.log('استجابة السيرفر:', result);
+
+        say('✅ تم حفظ الاختبار وتفعيله بنجاح');
+        alert('✅ تم حفظ الاختبار وتفعيله بنجاح!');
+        
+        await refresh();
+        resetQuizForm(true);
+
+      } catch (e) {
+        console.error('خطأ الحفظ:', e);
+        say('❌ فشل حفظ الاختبار: ' + e.message);
+        alert('❌ فشل الحفظ: ' + e.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function resetQuizForm(keepSource = false) {
+      qs = [];
+      document.getElementById('qid').value = 'quiz-' + Date.now();
+      document.getElementById('qtitle').value = '';
+
+      if (!keepSource) {
+        document.getElementById('qgrade').value = '';
+        document.getElementById('qgroups').value = '*';
+        lastSource = null;
+        document.getElementById('sourcePreview').innerHTML = '';
+        document.getElementById('sourceMsg').textContent = '';
+        document.getElementById('aiGenerateBtn').disabled = true;
+        document.getElementById('file').value = '';
+      }
+      renderQ();
+    }
+
+    function chooseNewSource() {
+      resetQuizForm(false);
+      document.getElementById('file').click();
+    }
+
+    function newQuizFromSource(sameSource) {
+      const source = lastSource;
+      if (!source) return chooseNewSource();
+
+      const grade = document.getElementById('qgrade').value;
+      const groups = document.getElementById('qgroups').value;
+
+      resetQuizForm(true);
+      document.getElementById('qgrade').value = grade;
+      document.getElementById('qgroups').value = groups;
+
+      lastSource = source;
+      document.getElementById('sourcePreview').innerHTML = (source.attachments || []).map(u => `<img class="thumb" src="${u}">`).join('');
+      document.getElementById('sourceMsg').innerHTML = `📄 المصدر الحالي: <b>${escapeHtml(source.originalName)}</b><br>اختر نوع الأسئلة وعددها ومستوى الصعوبة ثم اضغط «توليد الأسئلة بـ Gemini».`;
+      document.getElementById('aiGenerateBtn').disabled = false;
+      document.getElementById('importType').focus();
+    }
+
+    function renderQuizzes(a) {
+      const live = a.filter(x => !x.archived);
+      const archived = a.filter(x => x.archived);
+
+      document.getElementById('quizzes').innerHTML = live.map(x => 
+        `<div class="item">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+            <div><b>${escapeHtml(x.title)}</b> — ${escapeHtml(x.grade)} — ${(x.questions || []).length} سؤال — ترتيب ${x.order ?? '-'}</div>
+            <strong style="padding:6px 10px;border-radius:10px;background:${x.active ? '#065f46' : '#78350f'}">${x.active ? '🟢 منشور ومتاح للطلاب' : '⚪ محفوظ وغير منشور'}</strong>
+          </div>
+          <div style="margin-top:10px">
+            <button class="${x.active ? 'warn' : 'ok'}" onclick="toggleQuiz('${encodeURIComponent(x.id)}',${!x.active})">${x.active ? '⏸ إيقاف النشر' : '▶ تفعيل ونشر'}</button>
+            <button class="warn" onclick="archiveQuiz('${encodeURIComponent(x.id)}','${escapeHtml(x.title)}')">🗄️ أرشفة</button>
+            <button onclick="exportQuizPdf('${encodeURIComponent(x.id)}')">📄 تصدير PDF</button>
+          </div>
+        </div>`
+      ).join('') || '<span class="muted">لا اختبارات نشطة أو محفوظة.</span>';
+
+      document.getElementById('archive').innerHTML = archived.map(x => 
+        `<div class="item">
+          <b>${escapeHtml(x.title)}</b> — ${escapeHtml(x.grade)} — ${(x.questions || []).length} سؤال — 🗄️ مؤرشف<br>
+          <span class="muted">تاريخ الأرشفة: ${x.archivedAt ? new Date(x.archivedAt).toLocaleString('ar-EG') : '-'}</span><br>
+          <button class="ok" onclick="restoreQuiz('${encodeURIComponent(x.id)}')">↩️ استعادة</button>
+          <button onclick="exportQuizPdf('${encodeURIComponent(x.id)}')">📄 تصدير PDF</button>
+        </div>`
+      ).join('') || '<span class="muted">الأرشيف فارغ.</span>';
+    }
+
+    async function toggleQuiz(id, active) {
+      try {
+        await api('/quizzes/' + id + '/activate', { method: 'POST', body: JSON.stringify({ active }) });
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function archiveQuiz(id, title) {
+      if (!confirm('أرشفة الاختبار «' + title + '»؟ سيبقى محفوظًا ولن يظهر للطلاب.')) return;
+      try {
+        await api('/quizzes/' + id + '/archive', { method: 'POST' });
+        say('🗄️ تم أرشفة الاختبار');
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    async function restoreQuiz(id) {
+      try {
+        await api('/quizzes/' + id + '/restore', { method: 'POST' });
+        say('↩️ تمت استعادة الاختبار كغير منشور');
+        refresh();
+      } catch (e) {
+        say('❌ ' + e.message);
+      }
+    }
+
+    function exportQuizPdf(id) {
+      window.open('/api/quizzes/' + id + '/pdf?download=1', '_blank');
+    }
+
+    async function checkAI() {
+      const aiStatus = document.getElementById('aiStatus');
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        aiStatus.textContent = d.geminiConfigured ? `🤖 Gemini متصل — ${d.geminiModel}` : '⚠️ Gemini API غير مضبوط';
+        aiStatus.style.background = d.geminiConfigured ? '#065f46' : '#92400e';
+      } catch {
+        aiStatus.textContent = '⚠️ تعذر التحقق من Gemini';
+      }
+    }
+
+    // التشغيل الأولي
+    addQ();
+    refresh();
+    checkAI();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>
