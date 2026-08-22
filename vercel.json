@@ -8,16 +8,16 @@
   ],
   "routes": [
     {
-      "src": "/admin",
-      "dest": "/src/server.ts"
+      "src": "/admin(.*)",
+      "dest": "src/server.ts"
     },
     {
-      "src": "/student",
-      "dest": "/src/server.ts"
+      "src": "/student(.*)",
+      "dest": "src/server.ts"
     },
     {
       "src": "/api/(.*)",
-      "dest": "/src/server.ts"
+      "dest": "src/server.ts"
     },
     {
       "src": "/uploads/(.*)",
@@ -25,7 +25,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/public/$1"
+      "dest": "src/server.ts"
     }
   ]
 }
