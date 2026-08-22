@@ -36,7 +36,7 @@ const WAHA_URL=(process.env.WAHA_URL||'http://localhost:3001').replace(/\/+$/,''
 const WAHA_SESSION=process.env.WAHA_SESSION||'catalyst'; 
 const ADMIN_API_KEY=process.env.ADMIN_API_KEY||''; 
 const WEBHOOK_SECRET=process.env.WEBHOOK_SECRET||''; 
-const DATA_FILE=path.resolve(process.env.DATA_FILE||'./data/store.json'); 
+const DATA_FILE=process.env.VERCEL ? path.join('/tmp','store.json') : path.resolve(process.env.DATA_FILE||'./data/store.json'); 
 const GEMINI_API_KEY=process.env.GEMINI_API_KEY||''; 
 const GEMINI_MODEL=process.env.GEMINI_MODEL||'gemini-3.6-flash';
 
@@ -207,6 +207,7 @@ if (require.main === module) {
 
 // هذا التصدير ضروري ليعمل الكود على Vercel
 export default app;
+
 
 
 
