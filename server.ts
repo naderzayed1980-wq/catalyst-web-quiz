@@ -25,8 +25,14 @@ interface Store { students:Record<string,Student>; groups:Record<string,Group>; 
 
 const app=express(); app.use(cors()); app.use(express.json({limit:'10mb'}));
 app.use('/api',(_req,res,next)=>{res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');next();});
-const PUBLIC=path.join(__dirname,'public'); const UPLOAD_DIR=process.env.VERCEL ? path.join('/tmp','uploads') : path.join(PUBLIC,'uploads'); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
+
+const PUBLIC=path.join(process.cwd(),'public'); 
+const UPLOAD_DIR=process.env.VERCEL ? path.join('/tmp','uploads') : path.join(PUBLIC,'uploads'); 
+fs.mkdirSync(UPLOAD_DIR,{recursive:true});
+
+// ضبط الملفات الاستاتيكية وفق المعايير السحابية
 app.use(express.static(PUBLIC));
+
 app.get('/admin',(req,res)=>{res.setHeader('Cache-Control','no-store');res.sendFile(path.join(PUBLIC,'admin.html'));});
 app.get('/student',(req,res)=>{res.setHeader('Cache-Control','no-store');res.sendFile(path.join(PUBLIC,'student.html'));});
 app.get('/',(req,res)=>{res.setHeader('Cache-Control','no-store');res.sendFile(path.join(PUBLIC,'student.html'));});
@@ -116,11 +122,11 @@ function quizMenu(qs:Quiz[]){let m='ðŸ“š *Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±
 function startSession(s:Session,q:Quiz,sequence:string[]){s.quizId=q.id;s.quizQueue=sequence;s.sequenceMode=sequence.length>0;s.currentQuestionIndex=0;s.answers=[];s.status='IN_PROGRESS';s.startedAt=new Date().toISOString();s.updatedAt=new Date().toISOString();}
 
 function parseAnswer(q:Question,text:string):string|number{if(q.type!=='mcq')return text;const map:Record<string,number>={'Ø£':0,'Ø§':0,'1':0,'a':0,'Ø¨':1,'2':1,'b':1,'Ø¬':2,'3':2,'c':2,'Ø¯':3,'4':3,'d':3,'Ù‡Ù€':4,'Ù‡':4,'5':4,'e':4};const k=text.trim().toLowerCase();return map[k]??text;}
-async function ask(s:Session){const quiz=store.quizzes[s.quizId],q=quiz?.questions[s.currentQuestionIndex];if(!quiz||!q)return;if(q.imageUrl)await sendImage(s.chatId,q.imageUrl,`ðŸ“ Ø§Ù„Ù…Ø±ÙÙ‚ Ø§Ù„Ø¹Ù„Ù…ÙŠ Ù„Ù„Ø³Ø¤Ø§Ù„ ${s.currentQuestionIndex+1}`);let msg=`â“ *${quiz.title}*\nØ§Ù„Ø³Ø¤Ø§Ù„ (${s.currentQuestionIndex+1}/${quiz.questions.length}) â€” ${q.weight} Ø¯Ø±Ø¬Ø§Øª\n\n${q.question}\n\n`;if(q.type==='mcq'&&q.options?.length){const labels=['Ø£','Ø¨','Ø¬','Ø¯','Ù‡Ù€','Ùˆ'];q.options.forEach((o,i)=>msg+=`${labels[i]||i+1}) ${o}\n`);msg+='\nâœï¸ Ø£Ø±Ø³Ù„ Ø­Ø±Ù Ø§Ù„Ø§Ø®ØªÙŠØ§Ø± Ø£Ùˆ Ø±Ù‚Ù…Ù‡.';}else msg+='\nâœï¸ Ø§ÙƒØªØ¨ Ø¥Ø¬Ø§Ø¨ØªÙƒ Ù…Ø¨Ø§Ø´Ø±Ø©.';await sendText(s.chatId,msg);}
+async function ask(s:Session){const quiz=store.quizzes[s.quizId],q=quiz?.questions[s.currentQuestionIndex];if(!quiz||!q)return;if(q.imageUrl)await sendImage(s.chatId,q.imageUrl,`ðŸ“ Ø§Ù„Ù…Ø±ÙÙ‚ Ø§Ù„Ø¹Ù„Ù…ÙŠ Ù„Ù„Ø³Ø¤Ø§Ù„ ${s.currentQuestionIndex+1}`);let msg=`â“ *${quiz.title}*\nØ§Ù„Ø³Ø¤Ø§Ù„ (${s.currentQuestionIndex+1}/${quiz.questions.length}) â€” ${q.weight} Ø¯Ø±Ø¬Ø§Øª\n\n${q.question}\n\n`;if(q.type==='mcq'&&q.options?.length){const labels=['Ø£','Ø¨','Ø¬','Ø¯','Ù‡Ù€','Ùˆ'];q.options.forEach((o,i)=>msg+=`${labels[i]||i+1}) ${o}\n`);msg+='\nâœï¸ Ø£Ø±Ø³Ù„ Ø­Ø±Ù Ø§Ù„Ø§Ø®ØªÙŠØ§Ø± Ø£Ùˆ Ø±Ù‚Ù…Ù‡.';}else msg+='\nâœï¸ Ø§ÙƒØªØ¨ Ø¥Ø¬Ø§Ø¨ØªÙƒ Ù…Ø¨Ø§Ø´Ø±Ø©.';await sendText(s.chatId,msg);}
 async function finish(s:Session,student:Student,quiz:Quiz){s.status='COMPLETED';s.updatedAt=new Date().toISOString();const r=QuizEngine.calculateQuizResult(quiz.questions,s.answers);store.results.unshift({id:crypto.randomUUID(),phone:student.phone,studentName:student.name,chatId:s.chatId,quizId:quiz.id,grade:student.grade,groupId:s.groupId,totalScore:r.totalScore,maxScore:r.maxScore,percentage:r.percentage,evaluations:r.evaluations,date:new Date().toISOString()});save();let report=`ðŸ† *Ù†ØªÙŠØ¬Ø© Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±*\nðŸ“š ${quiz.title}\nðŸ‘¨â€ðŸŽ“ ${student.name}\nðŸŽ¯ *${r.totalScore}/${r.maxScore}* (${r.percentage}%)\nðŸ“Š ${r.summaryFeedback}\n\nðŸ“`;r.evaluations.forEach((e,i)=>report+=`\n${i+1}. ${e.isCorrect?'âœ…':'âŒ'} ${e.scoreAwarded}/${e.maxScore}`);await sendText(s.chatId,report);if(s.sequenceMode){let next:Quiz|undefined;while(s.quizQueue.length&&!next){const nextId=s.quizQueue.shift()!;const candidate=store.quizzes[nextId];if(candidate&&candidate.active)next=candidate;}if(next){startSession(s,next,s.quizQueue);save();await sendText(s.chatId,`\nâž¡ï¸ *Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø± Ø§Ù„ØªØ§Ù„ÙŠ*\nðŸ“š ${next.title}\nØ³ÙŠØ¨Ø¯Ø£ Ø§Ù„Ø¢Ù†.`);await ask(s);}else{await sendText(s.chatId,'ðŸŽ‰ Ø§Ù†ØªÙ‡Øª Ø³Ù„Ø³Ù„Ø© Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª Ø¨Ø§Ù„ÙƒØ§Ù…Ù„.');s.status='COMPLETED';save();}}else{await sendText(s.chatId,'\nðŸ“Œ Ø£Ø±Ø³Ù„ *Ø§Ø®ØªØ¨Ø§Ø±* Ù„Ø§Ø®ØªÙŠØ§Ø± Ø§Ø®ØªØ¨Ø§Ø± Ø¢Ø®Ø± Ù…Ù† Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª Ø§Ù„Ù…ØªØ§Ø­Ø©.');}}
 async function handle(chatId:string,studentPhone:string,groupId:string|undefined,text:string){const student=store.students[studentPhone];if(!student||student.status!=='APPROVED'||!student.active){await sendText(chatId,'ðŸš« Ø±Ù‚Ù…Ùƒ ØºÙŠØ± Ù…Ø¹ØªÙ…Ø¯ Ø¨Ø¹Ø¯. Ø³Ø¬Ù‘Ù„ Ø¨ÙŠØ§Ù†Ø§ØªÙƒ ÙˆØ§Ù†ØªØ¸Ø± Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„Ù…Ø¯ÙŠØ±.');return;}if(groupId&&!belongs(student,groupId)){await sendText(chatId,'ðŸš« Ø£Ù†Øª ØºÙŠØ± Ù…ØµØ±Ø­ Ù„Ùƒ Ø¨Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø©.');return;}const key=`${studentPhone}:${chatId}`;let s=store.sessions[key];const cmd=text.trim().toLowerCase();const qs=availableQuizzes(student,groupId);
 if(['Ø¥Ù„ØºØ§Ø¡','Ø§Ù„ØºØ§Ø¡','cancel'].includes(cmd)){if(s){delete store.sessions[key];save();}await sendText(chatId,'ØªÙ… Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±/Ø§Ù„Ø§Ø®ØªÙŠØ§Ø±.');return;}
-if(['Ø§Ø®ØªØ¨Ø§Ø±','Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª','Ø¨Ø¯Ø¡','start'].includes(cmd)){if(!qs.length){await sendText(chatId,`âš ï¸ Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§Ø®ØªØ¨Ø§Ø± Ù†Ø´Ø· Ù„Ù„ØµÙ ${student.grade} ÙˆØ§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©.`);return;}if(s?.status==='IN_PROGRESS'){await ask(s);return;}s=s||{key,studentPhone,chatId,groupId,quizId:'',quizQueue:[],sequenceMode:false,currentQuestionIndex:0,answers:[],status:'MENU',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};s.status='MENU';store.sessions[key]=s;save();await sendText(chatId,`ðŸ‘‹ Ø£Ù‡Ù„Ø§Ù‹ ${student.name}!\nðŸŽ“ ${student.grade}\n\n${quizMenu(qs)}`);return;}
+if(['Ø§Ø®ØªØ¨Ø§Ø±','Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª','Ø¨Ø¯Ø¡','start'].includes(cmd)){if(!qs.length){await sendText(chatId,`âš ï¸ Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§Ø®ØªØ¨Ø§Ø± Ù†Ø´Ø· Ù„Ù„ØµÙ ${student.grade} ÙˆØ§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©.`);return;}if(s?.status==='IN_PROGRESS'){await ask(s);return;}s=s||{key,studentPhone,chatId,groupId,quizId:'',quizQueue:[],sequenceMode:false,currentQuestionIndex:0,answers:[],status:'MENU',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};s.status='MENU';store.sessions[key]=s;save();await sendText(chatId,`ðŸ‘‹ Ø£Ù‡Ù„Ø§Ù‹ ${student.name}!\nðŸŽ“ ${student.grade}\n\n${quizMenu(qs)}`);return;}
 if((s?.status==='MENU'||!s)&&qs.length){let choice=-1;if(/^\d+$/.test(cmd))choice=Number(cmd)-1;else if(cmd.startsWith('Ø§Ø®ØªØ¨Ø§Ø± ')){const n=Number(cmd.slice(7).trim());if(Number.isInteger(n))choice=n-1;}if(cmd==='Ù…ØªØªØ§Ø¨Ø¹'||cmd==='ØªØªØ§Ø¨Ø¹'||cmd==='all'){s=s||{key,studentPhone,chatId,groupId,quizId:'',quizQueue:[],sequenceMode:false,currentQuestionIndex:0,answers:[],status:'MENU',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};const first=qs[0];startSession(s,first,qs.slice(1).map(q=>q.id));store.sessions[key]=s;save();await sendText(chatId,`â–¶ï¸ *Ø¨Ø¯Ø¡ Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª Ø¨Ø§Ù„ØªØªØ§Ø¨Ø¹*\nØ³ÙŠØªÙ… Ø­Ù„ ${qs.length} Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª Ø¨Ø§Ù„ØªØ±ØªÙŠØ¨.`);await ask(s);return;}if(choice>=0&&choice<qs.length){s=s||{key,studentPhone,chatId,groupId,quizId:'',quizQueue:[],sequenceMode:false,currentQuestionIndex:0,answers:[],status:'MENU',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};startSession(s,qs[choice],[]);store.sessions[key]=s;save();await sendText(chatId,`â–¶ï¸ *ØªÙ… Ø§Ø®ØªÙŠØ§Ø± Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±*\nðŸ“š ${qs[choice].title}`);await ask(s);return;}if(s?.status==='MENU'){await sendText(chatId,quizMenu(qs));return;}}
 if(!s||s.status!=='IN_PROGRESS'){await sendText(chatId,'Ø£Ø±Ø³Ù„ ÙƒÙ„Ù…Ø© *Ø§Ø®ØªØ¨Ø§Ø±* Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø±Ø§Øª Ø§Ù„Ù…ØªØ§Ø­Ø©.');return;}const quiz=store.quizzes[s.quizId],q=quiz?.questions[s.currentQuestionIndex];if(!quiz||!q){await sendText(chatId,'Ø§Ù„Ø§Ø®ØªØ¨Ø§Ø± ØºÙŠØ± Ù…ØªØ§Ø­.');return;}const input=parseAnswer(q,text),ev=QuizEngine.evaluateQuestion(q,input);s.answers.push({questionId:q.id,studentInput:input});s.currentQuestionIndex++;s.updatedAt=new Date().toISOString();save();await sendText(chatId,ev.feedback);if(s.currentQuestionIndex<quiz.questions.length)await ask(s);else await finish(s,student,quiz);}
 
@@ -198,18 +204,10 @@ app.get('/api/quizzes/:id/pdf',admin,(req,res)=>{const q=store.quizzes[String(re
 
 app.get('/api/quiz/results',admin,(_req,res)=>res.json({results:store.results}));
 
-// هذا الشرط ليعمل السيرفر محلياً فقط ولا يسبب خطأ على Vercel
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Catalyst Server running on port ${PORT}`);
   });
 }
 
-// هذا التصدير ضروري ليعمل الكود على Vercel
 export default app;
-
-
-
-
-
-
