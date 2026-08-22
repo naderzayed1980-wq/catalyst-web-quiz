@@ -77,3 +77,18 @@ waha.env
 *.key
 *.json.bak
 
+
+# Deployment exclusions
+public/uploads/
+*.bak*
+catalyst-qr.png
+qr-headers.txt
+
+
+server.ts.before-encoding-repair
+public/student.html.before-suspended-fix
+public/student.html.working-suspended
+
+
+server.ts.working-suspended
+
