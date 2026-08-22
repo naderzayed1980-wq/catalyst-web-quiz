@@ -25,7 +25,7 @@ interface Store { students:Record<string,Student>; groups:Record<string,Group>; 
 
 const app=express(); app.use(cors()); app.use(express.json({limit:'10mb'}));
 app.use('/api',(_req,res,next)=>{res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');next();});
-const PUBLIC=path.join(__dirname,'public'); const UPLOAD_DIR=path.join(PUBLIC,'uploads'); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
+const PUBLIC=path.join(__dirname,'public'); const UPLOAD_DIR=process.env.VERCEL ? path.join('/tmp','uploads') : path.join(PUBLIC,'uploads'); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 app.use(express.static(PUBLIC));
 app.get('/admin',(req,res)=>{res.setHeader('Cache-Control','no-store');res.sendFile(path.join(PUBLIC,'admin.html'));});
 app.get('/student',(req,res)=>{res.setHeader('Cache-Control','no-store');res.sendFile(path.join(PUBLIC,'student.html'));});
@@ -207,6 +207,7 @@ if (require.main === module) {
 
 // هذا التصدير ضروري ليعمل الكود على Vercel
 export default app;
+
 
 
 

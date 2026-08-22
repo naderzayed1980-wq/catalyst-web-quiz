@@ -20,7 +20,7 @@ app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); next(); });
 const PUBLIC = path_1.default.join(__dirname, 'public');
-const UPLOAD_DIR = path_1.default.join(PUBLIC, 'uploads');
+const UPLOAD_DIR = process.env.VERCEL ? path_1.default.join('/tmp', 'uploads') : path_1.default.join(PUBLIC, 'uploads');
 fs_1.default.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use(express_1.default.static(PUBLIC));
 app.get('/admin', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path_1.default.join(PUBLIC, 'admin.html')); });
@@ -384,6 +384,11 @@ app.get('/api/quizzes/:id/pdf', admin, (req, res) => { const q = store.quizzes[S
     }
 } doc.moveDown(.5); }); doc.end(); });
 app.get('/api/quiz/results', admin, (_req, res) => res.json({ results: store.results }));
-app.listen(PORT, () => {
-    console.log(`ðŸš€ Catalyst Server running on port ${PORT}`);
-});
+// هذا الشرط ليعمل السيرفر محلياً فقط ولا يسبب خطأ على Vercel
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Catalyst Server running on port ${PORT}`);
+    });
+}
+// هذا التصدير ضروري ليعمل الكود على Vercel
+exports.default = app;
